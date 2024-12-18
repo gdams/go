@@ -84,7 +84,7 @@ index 00000000000000..92623031fd87d0
 +var Dec = bbig.Dec
 diff --git a/src/crypto/internal/backend/cng_windows.go b/src/crypto/internal/backend/cng_windows.go
 new file mode 100644
-index 00000000000000..c37247c8a2c7c6
+index 00000000000000..8b5416f5be0955
 --- /dev/null
 +++ b/src/crypto/internal/backend/cng_windows.go
 @@ -0,0 +1,316 @@
@@ -335,37 +335,37 @@ index 00000000000000..c37247c8a2c7c6
 +
 +type PublicKeyEd25519 struct{}
 +
-+func (k *PublicKeyEd25519) Bytes() ([]byte, error) {
++func (k PublicKeyEd25519) Bytes() ([]byte, error) {
 +	panic("cryptobackend: not available")
 +}
 +
 +type PrivateKeyEd25519 struct{}
 +
-+func (k *PrivateKeyEd25519) Bytes() ([]byte, error) {
++func (k PrivateKeyEd25519) Bytes() ([]byte, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func GenerateKeyEd25519() (*PrivateKeyEd25519, error) {
++func GenerateKeyEd25519() (PrivateKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func NewPrivateKeyEd25119(priv []byte) (*PrivateKeyEd25519, error) {
++func NewPrivateKeyEd25119(priv []byte) (PrivateKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func NewPublicKeyEd25119(pub []byte) (*PublicKeyEd25519, error) {
++func NewPublicKeyEd25119(pub []byte) (PublicKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func NewPrivateKeyEd25519FromSeed(seed []byte) (*PrivateKeyEd25519, error) {
++func NewPrivateKeyEd25519FromSeed(seed []byte) (PrivateKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func SignEd25519(priv *PrivateKeyEd25519, message []byte) ([]byte, error) {
++func SignEd25519(priv PrivateKeyEd25519, message []byte) ([]byte, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func VerifyEd25519(pub *PublicKeyEd25519, message, sig []byte) error {
++func VerifyEd25519(pub PublicKeyEd25519, message, sig []byte) error {
 +	panic("cryptobackend: not available")
 +}
 +
@@ -572,7 +572,7 @@ index 00000000000000..99ee2542ca38a9
 +const CNGCrypto = true
 +const CNGCryptoInt = 1
 diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
-index 233a12ee542328..8c140f0dbed134 100644
+index d56306bf10a356..c6f64c18bdd13f 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
 @@ -60,6 +60,7 @@ type Flags struct {
@@ -581,5 +581,5 @@ index 233a12ee542328..8c140f0dbed134 100644
  	OpenSSLCrypto     bool
 +	CNGCrypto         bool
  
- 	// SystemCrypto enables the OpenSSL or CNG crypto experiment depending on
+ 	// SystemCrypto enables the OpenSSL, CNG or Darwin crypto experiment depending on
  	// which one is appropriate on the target GOOS.

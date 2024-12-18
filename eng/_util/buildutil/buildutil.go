@@ -91,6 +91,7 @@ func AppendExperimentEnv(experiment string) {
 	if strings.Contains(experiment, "opensslcrypto") ||
 		strings.Contains(experiment, "cngcrypto") ||
 		strings.Contains(experiment, "boringcrypto") ||
+		strings.Contains(experiment, "darwincrypto") ||
 		strings.Contains(experiment, "systemcrypto") {
 
 		experiment += ",allowcryptofallback"

@@ -1,0 +1,797 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: George Adams <gadams@microsoft.com>
+Date: Tue, 17 Dec 2024 13:17:39 +0000
+Subject: [PATCH] Add Darwin crypto backend
+
+---
+ src/crypto/ecdsa/ecdsa.go                     |   6 +-
+ src/crypto/ed25519/ed25519_test.go            |   3 +-
+ .../internal/backend/bbig/big_darwin.go       |  12 +
+ src/crypto/internal/backend/common.go         |  36 +-
+ src/crypto/internal/backend/darwin_darwin.go  | 326 ++++++++++++++++++
+ src/crypto/internal/backend/fips140/darwin.go |  11 +
+ src/crypto/rsa/boring.go                      |   7 +-
+ src/crypto/rsa/darwin.go                      |  71 ++++
+ src/crypto/rsa/fips.go                        |  10 +-
+ src/crypto/rsa/pss_test.go                    |   5 +-
+ src/go.mod                                    |   1 +
+ src/go.sum                                    |   2 +
+ src/go/build/deps_test.go                     |   5 +-
+ src/go/build/vendor_test.go                   |   1 +
+ .../goexperiment/exp_darwincrypto_off.go      |   9 +
+ .../goexperiment/exp_darwincrypto_on.go       |   9 +
+ src/internal/goexperiment/flags.go            |   1 +
+ 17 files changed, 502 insertions(+), 13 deletions(-)
+ create mode 100644 src/crypto/internal/backend/bbig/big_darwin.go
+ create mode 100644 src/crypto/internal/backend/darwin_darwin.go
+ create mode 100644 src/crypto/internal/backend/fips140/darwin.go
+ create mode 100644 src/crypto/rsa/darwin.go
+ create mode 100644 src/internal/goexperiment/exp_darwincrypto_off.go
+ create mode 100644 src/internal/goexperiment/exp_darwincrypto_on.go
+
+diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
+index 41ac17df22d7d7..84a7ba02c88620 100644
+--- a/src/crypto/ecdsa/ecdsa.go
++++ b/src/crypto/ecdsa/ecdsa.go
+@@ -159,7 +159,7 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
+ func GenerateKey(c elliptic.Curve, rand io.Reader) (*PrivateKey, error) {
+ 	randutil.MaybeReadByte(rand)
+ 
+-	if boring.Enabled && rand == boring.RandReader {
++	if boring.Enabled && rand == boring.RandReader && boring.IsCurveSupported(c.Params().Name) {
+ 		x, y, d, err := boring.GenerateKeyECDSA(c.Params().Name)
+ 		if err != nil {
+ 			return nil, err
+@@ -208,7 +208,7 @@ var errNoAsm = errors.New("no assembly implementation available")
+ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
+ 	randutil.MaybeReadByte(rand)
+ 
+-	if boring.Enabled && rand == boring.RandReader {
++	if boring.Enabled && rand == boring.RandReader && boring.IsCurveSupported(priv.Curve.Params().Name) {
+ 		b, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+@@ -319,7 +319,7 @@ func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
+ // The inputs are not considered confidential, and may leak through timing side
+ // channels, or if an attacker has control of part of the inputs.
+ func VerifyASN1(pub *PublicKey, hash, sig []byte) bool {
+-	if boring.Enabled {
++	if boring.Enabled && boring.IsCurveSupported(pub.Curve.Params().Name) {
+ 		key, err := boringPublicKey(pub)
+ 		if err != nil {
+ 			return false
+diff --git a/src/crypto/ed25519/ed25519_test.go b/src/crypto/ed25519/ed25519_test.go
+index 87d0132df11d8b..00dd5224a70418 100644
+--- a/src/crypto/ed25519/ed25519_test.go
++++ b/src/crypto/ed25519/ed25519_test.go
+@@ -13,6 +13,7 @@ import (
+ 	"crypto/rand"
+ 	"crypto/sha512"
+ 	"encoding/hex"
++	"internal/goexperiment"
+ 	"log"
+ 	"os"
+ 	"strings"
+@@ -316,7 +317,7 @@ func TestGolden(t *testing.T) {
+ 		copy(priv[32:], pubKey)
+ 
+ 		sig2 := Sign(priv[:], msg)
+-		if !bytes.Equal(sig, sig2[:]) {
++		if !bytes.Equal(sig, sig2[:]) && !goexperiment.DarwinCrypto {
+ 			t.Errorf("different signature result on line %d: %x vs %x", lineNo, sig, sig2)
+ 		}
+ 
+diff --git a/src/crypto/internal/backend/bbig/big_darwin.go b/src/crypto/internal/backend/bbig/big_darwin.go
+new file mode 100644
+index 00000000000000..77f3ca5d262769
+--- /dev/null
++++ b/src/crypto/internal/backend/bbig/big_darwin.go
+@@ -0,0 +1,12 @@
++// Copyright 2022 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build goexperiment.darwincrypto && cgo
++
++package bbig
++
++import "github.com/microsoft/go-crypto-darwin/bbig"
++
++var Enc = bbig.Enc
++var Dec = bbig.Dec
+diff --git a/src/crypto/internal/backend/common.go b/src/crypto/internal/backend/common.go
+index 91223c0ef0f810..d27bfee89e2534 100644
+--- a/src/crypto/internal/backend/common.go
++++ b/src/crypto/internal/backend/common.go
+@@ -5,6 +5,7 @@
+ package backend
+ 
+ import (
++	"crypto"
+ 	"crypto/internal/backend/fips140"
+ 	"crypto/internal/boring/sig"
+ 	"internal/goexperiment"
+@@ -14,7 +15,7 @@ import (
+ func init() {
+ 	if fips140.Enabled() {
+ 		if !Enabled {
+-			if runtime.GOOS != "linux" && runtime.GOOS != "windows" {
++			if runtime.GOOS != "linux" && runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+ 				panic("FIPS mode requested (" + fips140.Message + ") but no crypto backend is supported on " + runtime.GOOS)
+ 			}
+ 			panic("FIPS mode requested (" + fips140.Message + ") but no supported crypto backend is enabled")
+@@ -75,5 +76,38 @@ func IsSaltSupported(salt int) bool {
+ 	if goexperiment.CNGCrypto {
+ 		return salt != 0 // rsa.PSSSaltLengthAuto
+ 	}
++	if goexperiment.DarwinCrypto {
++		return salt == -1 // CommonCrypto doesn't support custom salt length
++	}
++	return true
++}
++
++func IsCurveSupported(curve string) bool {
++	switch curve {
++	case "P-256", "P-384", "P-521":
++		return true
++	case "P-224":
++		return !goexperiment.DarwinCrypto
++	}
++	return false
++}
++
++func IsRSAOAEPLabelSupported(label []byte) bool {
++	if goexperiment.DarwinCrypto {
++		// CommonCrypto doesn't support labels
++		// https://github.com/microsoft/go-crypto-darwin/issues/22
++		return len(label) == 0
++	}
++	return true
++}
++
++func IsPKCS1v15HashSupported(hash crypto.Hash) bool {
++	if goexperiment.DarwinCrypto {
++		switch hash {
++		case crypto.SHA1, crypto.SHA224, crypto.SHA256, crypto.SHA384, crypto.SHA512, 0:
++			return true
++		}
++		return false
++	}
+ 	return true
+ }
+diff --git a/src/crypto/internal/backend/darwin_darwin.go b/src/crypto/internal/backend/darwin_darwin.go
+new file mode 100644
+index 00000000000000..45ec6c83d669c7
+--- /dev/null
++++ b/src/crypto/internal/backend/darwin_darwin.go
+@@ -0,0 +1,326 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build goexperiment.darwincrypto && darwin && cgo
++
++// Package darwin provides access to DarwinCrypto implementation functions.
++// Check the variable Enabled to find out whether DarwinCrypto is available.
++// If DarwinCrypto is not available, the functions in this package all panic.
++package backend
++
++import (
++	"crypto"
++	"crypto/cipher"
++	"crypto/internal/boring/sig"
++	"crypto/internal/fips140/nistec"
++	"errors"
++	"hash"
++	_ "unsafe"
++
++	"github.com/microsoft/go-crypto-darwin/xcrypto"
++)
++
++// Enabled controls whether FIPS crypto is enabled.
++const Enabled = true
++
++type BigInt = xcrypto.BigInt
++
++func init() {
++	sig.BoringCrypto()
++}
++
++const RandReader = xcrypto.RandReader
++
++func SupportsHash(h crypto.Hash) bool {
++	return xcrypto.SupportsHash(h)
++}
++
++func NewMD5() hash.Hash    { return xcrypto.NewMD5() }
++func NewSHA1() hash.Hash   { return xcrypto.NewSHA1() }
++func NewSHA224() hash.Hash { return xcrypto.NewSHA224() }
++func NewSHA256() hash.Hash { return xcrypto.NewSHA256() }
++func NewSHA384() hash.Hash { return xcrypto.NewSHA384() }
++func NewSHA512() hash.Hash { return xcrypto.NewSHA512() }
++
++func MD5(p []byte) (sum [16]byte)    { return xcrypto.MD5(p) }
++func SHA1(p []byte) (sum [20]byte)   { return xcrypto.SHA1(p) }
++func SHA224(p []byte) (sum [28]byte) { return xcrypto.SHA224(p) }
++func SHA256(p []byte) (sum [32]byte) { return xcrypto.SHA256(p) }
++func SHA384(p []byte) (sum [48]byte) { return xcrypto.SHA384(p) }
++func SHA512(p []byte) (sum [64]byte) { return xcrypto.SHA512(p) }
++
++func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
++	return xcrypto.NewHMAC(h, key)
++}
++
++func NewAESCipher(key []byte) (cipher.Block, error) {
++	return xcrypto.NewAESCipher(key)
++}
++
++func NewGCMTLS(c cipher.Block) (cipher.AEAD, error) {
++	return xcrypto.NewGCMTLS(c)
++}
++
++func NewGCMTLS13(c cipher.Block) (cipher.AEAD, error) {
++	return xcrypto.NewGCMTLS13(c)
++}
++
++type PublicKeyECDSA = xcrypto.PublicKeyECDSA
++type PrivateKeyECDSA = xcrypto.PrivateKeyECDSA
++
++func GenerateKeyECDSA(curve string) (X, Y, D xcrypto.BigInt, err error) {
++	return xcrypto.GenerateKeyECDSA(curve)
++}
++
++func NewPrivateKeyECDSA(curve string, X, Y, D xcrypto.BigInt) (*xcrypto.PrivateKeyECDSA, error) {
++	return xcrypto.NewPrivateKeyECDSA(curve, X, Y, D)
++}
++
++func NewPublicKeyECDSA(curve string, X, Y xcrypto.BigInt) (*xcrypto.PublicKeyECDSA, error) {
++	return xcrypto.NewPublicKeyECDSA(curve, X, Y)
++}
++
++//go:linkname encodeSignature crypto/ecdsa.encodeSignature
++func encodeSignature(r, s []byte) ([]byte, error)
++
++//go:linkname parseSignature crypto/ecdsa.parseSignature
++func parseSignature(sig []byte) (r, s []byte, err error)
++
++func SignMarshalECDSA(priv *xcrypto.PrivateKeyECDSA, hash []byte) ([]byte, error) {
++	return xcrypto.SignMarshalECDSA(priv, hash)
++}
++
++func VerifyECDSA(pub *xcrypto.PublicKeyECDSA, hash []byte, sig []byte) bool {
++	return xcrypto.VerifyECDSA(pub, hash, sig)
++}
++
++type PublicKeyRSA = xcrypto.PublicKeyRSA
++type PrivateKeyRSA = xcrypto.PrivateKeyRSA
++
++func DecryptRSAOAEP(h, mgfHash hash.Hash, priv *xcrypto.PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
++	return xcrypto.DecryptRSAOAEP(h, priv, ciphertext, label)
++}
++
++func DecryptRSAPKCS1(priv *xcrypto.PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
++	return xcrypto.DecryptRSAPKCS1(priv, ciphertext)
++}
++
++func DecryptRSANoPadding(priv *xcrypto.PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
++	return xcrypto.DecryptRSANoPadding(priv, ciphertext)
++}
++
++func EncryptRSAOAEP(h, mgfHash hash.Hash, pub *xcrypto.PublicKeyRSA, msg, label []byte) ([]byte, error) {
++	return xcrypto.EncryptRSAOAEP(h, pub, msg, label)
++}
++
++func EncryptRSAPKCS1(pub *xcrypto.PublicKeyRSA, msg []byte) ([]byte, error) {
++	return xcrypto.EncryptRSAPKCS1(pub, msg)
++}
++
++func EncryptRSANoPadding(pub *xcrypto.PublicKeyRSA, msg []byte) ([]byte, error) {
++	return xcrypto.EncryptRSANoPadding(pub, msg)
++}
++
++//go:linkname decodeKeyRSA crypto/rsa.decodeKey
++func decodeKeyRSA(data []byte) (N, E, D, P, Q, Dp, Dq, Qinv xcrypto.BigInt, err error)
++
++//go:linkname encodeKeyRSA crypto/rsa.encodeKey
++func encodeKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv xcrypto.BigInt) ([]byte, error)
++
++//go:linkname encodePublicKeyRSA crypto/rsa.encodePublicKey
++func encodePublicKeyRSA(N, E xcrypto.BigInt) ([]byte, error)
++
++func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv xcrypto.BigInt, err error) {
++	data, err := xcrypto.GenerateKeyRSA(bits)
++	if err != nil {
++		return
++	}
++	return decodeKeyRSA(data)
++}
++
++func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv xcrypto.BigInt) (*xcrypto.PrivateKeyRSA, error) {
++	encoded, err := encodeKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv)
++	if err != nil {
++		return nil, err
++	}
++	return xcrypto.NewPrivateKeyRSA(encoded)
++}
++
++func NewPublicKeyRSA(N, E xcrypto.BigInt) (*xcrypto.PublicKeyRSA, error) {
++	encoded, err := encodePublicKeyRSA(N, E)
++	if err != nil {
++		return nil, err
++	}
++	return xcrypto.NewPublicKeyRSA(encoded)
++}
++
++func SignRSAPKCS1v15(priv *xcrypto.PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
++	return xcrypto.SignRSAPKCS1v15(priv, h, hashed)
++}
++
++func SignRSAPSS(priv *xcrypto.PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) ([]byte, error) {
++	return xcrypto.SignRSAPSS(priv, h, hashed, saltLen)
++}
++
++func VerifyRSAPKCS1v15(pub *xcrypto.PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
++	return xcrypto.VerifyRSAPKCS1v15(pub, h, hashed, sig)
++}
++
++func VerifyRSAPSS(pub *xcrypto.PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen int) error {
++	return xcrypto.VerifyRSAPSS(pub, h, hashed, sig, saltLen)
++}
++
++type PrivateKeyECDH = xcrypto.PrivateKeyECDH
++type PublicKeyECDH = xcrypto.PublicKeyECDH
++
++func ECDH(priv *xcrypto.PrivateKeyECDH, pub *xcrypto.PublicKeyECDH) ([]byte, error) {
++	return xcrypto.ECDH(priv, pub)
++}
++
++func GenerateKeyECDH(curve string) (*xcrypto.PrivateKeyECDH, []byte, error) {
++	return xcrypto.GenerateKeyECDH(curve)
++}
++
++func NewPrivateKeyECDH(curve string, bytes []byte) (*xcrypto.PrivateKeyECDH, error) {
++	var key []byte
++	switch curve {
++	case "P-256":
++		p, err := nistec.NewP256Point().ScalarBaseMult(bytes)
++		if err != nil {
++			return nil, err
++		}
++		key = p.Bytes()
++	case "P-384":
++		p, err := nistec.NewP384Point().ScalarBaseMult(bytes)
++		if err != nil {
++			return nil, err
++		}
++		key = p.Bytes()
++	case "P-521":
++		p, err := nistec.NewP521Point().ScalarBaseMult(bytes)
++		if err != nil {
++			return nil, err
++		}
++		key = p.Bytes()
++	default:
++		return nil, errors.New("NewPrivateKeyECDH: unsupported curve: " + curve)
++	}
++	return xcrypto.NewPrivateKeyECDH(curve, key, bytes)
++}
++
++func NewPublicKeyECDH(curve string, bytes []byte) (*xcrypto.PublicKeyECDH, error) {
++	return xcrypto.NewPublicKeyECDH(curve, bytes)
++}
++
++func SupportsHKDF() bool {
++	return true
++}
++
++func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte, keyLength int) ([]byte, error) {
++	return xcrypto.ExpandHKDF(h, pseudorandomKey, info, keyLength)
++}
++
++func ExtractHKDF(h func() hash.Hash, secret, salt []byte) ([]byte, error) {
++	return xcrypto.ExtractHKDF(h, secret, salt)
++}
++
++func SupportsPBKDF2() bool {
++	return true
++}
++
++func PBKDF2(pass, salt []byte, iter, keyLen int, h func() hash.Hash) ([]byte, error) {
++	return xcrypto.PBKDF2(pass, salt, iter, keyLen, h)
++}
++
++func SupportsTLS1PRF() bool {
++	return false
++}
++
++func TLS1PRF(result, secret, label, seed []byte, h func() hash.Hash) error {
++	panic("cryptobackend: not available")
++}
++
++func SupportsDESCipher() bool {
++	return true
++}
++
++func SupportsTripleDESCipher() bool {
++	return true
++}
++
++func NewDESCipher(key []byte) (cipher.Block, error) {
++	return xcrypto.NewDESCipher(key)
++}
++
++func NewTripleDESCipher(key []byte) (cipher.Block, error) {
++	return xcrypto.NewTripleDESCipher(key)
++}
++
++func SupportsRC4() bool { return true }
++
++type RC4Cipher = xcrypto.RC4Cipher
++
++func NewRC4Cipher(key []byte) (*RC4Cipher, error) { return xcrypto.NewRC4Cipher(key) }
++
++func SupportsEd25519() bool {
++	return true
++}
++
++type PublicKeyEd25519 = xcrypto.PublicKeyEd25519
++type PrivateKeyEd25519 = xcrypto.PrivateKeyEd25519
++
++func GenerateKeyEd25519() (PrivateKeyEd25519, error) {
++	return xcrypto.GenerateKeyEd25519(), nil
++}
++
++func NewPrivateKeyEd25119(priv []byte) (PrivateKeyEd25519, error) {
++	return xcrypto.NewPrivateKeyEd25519(priv)
++}
++
++func NewPublicKeyEd25119(pub []byte) (PublicKeyEd25519, error) {
++	return xcrypto.NewPublicKeyEd25519(pub)
++}
++
++func NewPrivateKeyEd25519FromSeed(seed []byte) (PrivateKeyEd25519, error) {
++	return xcrypto.NewPrivateKeyEd25519FromSeed(seed)
++}
++
++func SignEd25519(priv PrivateKeyEd25519, message []byte) ([]byte, error) {
++	return xcrypto.SignEd25519(priv, message)
++}
++
++func VerifyEd25519(pub PublicKeyEd25519, message, sig []byte) error {
++	return xcrypto.VerifyEd25519(pub, message, sig)
++}
++
++func SupportsDSA(l, n int) bool {
++	return false
++}
++
++func GenerateParametersDSA(l, n int) (p, q, g xcrypto.BigInt, err error) {
++	panic("cryptobackend: not available")
++}
++
++type PrivateKeyDSA struct{}
++type PublicKeyDSA struct{}
++
++func GenerateKeyDSA(p, q, g xcrypto.BigInt) (x, y xcrypto.BigInt, err error) {
++	panic("cryptobackend: not available")
++}
++
++func NewPrivateKeyDSA(p, q, g, x, y xcrypto.BigInt) (*PrivateKeyDSA, error) {
++	panic("cryptobackend: not available")
++}
++
++func NewPublicKeyDSA(p, q, g, y xcrypto.BigInt) (*PublicKeyDSA, error) {
++	panic("cryptobackend: not available")
++}
++
++func SignDSA(priv *PrivateKeyDSA, hash []byte, parseSignature func([]byte) (xcrypto.BigInt, xcrypto.BigInt, error)) (r, s xcrypto.BigInt, err error) {
++	panic("cryptobackend: not available")
++}
++
++func VerifyDSA(pub *PublicKeyDSA, hashed []byte, r, s xcrypto.BigInt, encodeSignature func(r, s xcrypto.BigInt) ([]byte, error)) bool {
++	panic("cryptobackend: not available")
++}
+diff --git a/src/crypto/internal/backend/fips140/darwin.go b/src/crypto/internal/backend/fips140/darwin.go
+new file mode 100644
+index 00000000000000..ef5af5d956163e
+--- /dev/null
++++ b/src/crypto/internal/backend/fips140/darwin.go
+@@ -0,0 +1,11 @@
++// Copyright 2024 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build goexperiment.darwincrypto
++
++package fips140
++
++func systemFIPSMode() bool {
++	return false
++}
+diff --git a/src/crypto/rsa/boring.go b/src/crypto/rsa/boring.go
+index d52faddef45549..b276571ddf9fc8 100644
+--- a/src/crypto/rsa/boring.go
++++ b/src/crypto/rsa/boring.go
+@@ -10,6 +10,7 @@ import (
+ 	boring "crypto/internal/backend"
+ 	"crypto/internal/backend/bbig"
+ 	"crypto/internal/boring/bcache"
++	"internal/goexperiment"
+ 	"math/big"
+ )
+ 
+@@ -62,11 +63,15 @@ type boringPriv struct {
+ }
+ 
+ func boringPrivateKey(priv *PrivateKey) (*boring.PrivateKeyRSA, error) {
++	// CommonCrypto requires the CRT values to be precomputed if nil
++	if goexperiment.DarwinCrypto && (priv.Precomputed.Dp == nil || priv.Precomputed.Dq == nil || priv.Precomputed.Qinv == nil) {
++		priv.Precompute()
++		priv.Precomputed.fips = nil
++	}
+ 	b := privCache.Get(priv)
+ 	if b != nil && privateKeyEqual(&b.orig, priv) {
+ 		return b.key, nil
+ 	}
+-
+ 	b = new(boringPriv)
+ 	b.orig = copyPrivateKey(priv)
+ 
+diff --git a/src/crypto/rsa/darwin.go b/src/crypto/rsa/darwin.go
+new file mode 100644
+index 00000000000000..1b9c63523ee90e
+--- /dev/null
++++ b/src/crypto/rsa/darwin.go
+@@ -0,0 +1,71 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build goexperiment.darwincrypto
++
++package rsa
++
++import (
++	"crypto/internal/backend"
++	"crypto/internal/backend/bbig"
++	"errors"
++	"math/big"
++	_ "unsafe"
++
++	"golang.org/x/crypto/cryptobyte"
++	"golang.org/x/crypto/cryptobyte/asn1"
++)
++
++//go:linkname decodeKey
++func decodeKey(data []byte) (N, E, D, P, Q, Dp, Dq, Qinv backend.BigInt, err error) {
++	bad := func(e error) (N, E, D, P, Q, Dp, Dq, Qinv backend.BigInt, err error) {
++		return nil, nil, nil, nil, nil, nil, nil, nil, e
++	}
++	input := cryptobyte.String(data)
++	var version int
++	n, e, d, p, q, dp, dq, qinv := new(big.Int), new(big.Int), new(big.Int), new(big.Int),
++		new(big.Int), new(big.Int), new(big.Int), new(big.Int)
++	// Parse the ASN.1 sequence
++	if !input.ReadASN1(&input, asn1.SEQUENCE) {
++		return bad(errors.New("invalid ASN.1 structure: not a sequence"))
++	}
++	if !input.ReadASN1Integer(&version) || version != 0 {
++		return bad(errors.New("invalid ASN.1 structure: unsupported version"))
++	}
++	if !input.ReadASN1Integer(n) || !input.ReadASN1Integer(e) ||
++		!input.ReadASN1Integer(d) || !input.ReadASN1Integer(p) ||
++		!input.ReadASN1Integer(q) || !input.ReadASN1Integer(dp) ||
++		!input.ReadASN1Integer(dq) || !input.ReadASN1Integer(qinv) {
++		return bad(errors.New("invalid ASN.1 structure"))
++	}
++	return bbig.Enc(n), bbig.Enc(e), bbig.Enc(d), bbig.Enc(p), bbig.Enc(q),
++		bbig.Enc(dp), bbig.Enc(dq), bbig.Enc(qinv), nil
++}
++
++//go:linkname encodeKey
++func encodeKey(N, E, D, P, Q, Dp, Dq, Qinv backend.BigInt) ([]byte, error) {
++	builder := cryptobyte.NewBuilder(nil)
++	builder.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
++		b.AddASN1Int64(0)               // Add version as int64
++		b.AddASN1BigInt(bbig.Dec(N))    // Add modulus
++		b.AddASN1BigInt(bbig.Dec(E))    // Add public exponent
++		b.AddASN1BigInt(bbig.Dec(D))    // Add private exponent
++		b.AddASN1BigInt(bbig.Dec(P))    // Add prime1
++		b.AddASN1BigInt(bbig.Dec(Q))    // Add prime2
++		b.AddASN1BigInt(bbig.Dec(Dp))   // Add exponent1
++		b.AddASN1BigInt(bbig.Dec(Dq))   // Add exponent2
++		b.AddASN1BigInt(bbig.Dec(Qinv)) // Add coefficient
++	})
++	return builder.Bytes()
++}
++
++//go:linkname encodePublicKey
++func encodePublicKey(N, E backend.BigInt) ([]byte, error) {
++	builder := cryptobyte.NewBuilder(nil)
++	builder.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
++		b.AddASN1BigInt(bbig.Dec(N)) // Add modulus
++		b.AddASN1BigInt(bbig.Dec(E)) // Add public exponent
++	})
++	return builder.Bytes()
++}
+diff --git a/src/crypto/rsa/fips.go b/src/crypto/rsa/fips.go
+index ccb027810a7e07..149b109e0faa35 100644
+--- a/src/crypto/rsa/fips.go
++++ b/src/crypto/rsa/fips.go
+@@ -78,7 +78,7 @@ func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte,
+ 		hash = opts.Hash
+ 	}
+ 
+-	if boring.Enabled && rand == boring.RandReader && boring.IsRSAKeySupported(len(priv.Primes)) && boring.SupportsHash(hash) {
++	if boring.Enabled && rand == boring.RandReader && boring.IsSaltSupported(opts.saltLength()) && boring.IsRSAKeySupported(len(priv.Primes)) && boring.SupportsHash(hash) {
+ 		bkey, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+@@ -200,7 +200,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
+ 
+ 	defer hash.Reset()
+ 
+-	if boring.Enabled && random == boring.RandReader {
++	if boring.Enabled && random == boring.RandReader && boring.IsRSAOAEPLabelSupported(label) {
+ 		hash.Reset()
+ 		k := pub.Size()
+ 		if len(msg) > k-2*hash.Size()-2 {
+@@ -249,7 +249,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, priv *PrivateKey, ciphertext []byte, l
+ 		}
+ 	}
+ 
+-	if boring.Enabled && boring.IsRSAKeySupported(len(priv.Primes)) {
++	if boring.Enabled && boring.IsRSAKeySupported(len(priv.Primes)) && boring.IsRSAOAEPLabelSupported(label) {
+ 		k := priv.Size()
+ 		if len(ciphertext) > k ||
+ 			k < hash.Size()*2+2 {
+@@ -305,7 +305,7 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
+ 		return nil, errors.New("crypto/rsa: use of hash functions other than SHA-2 or SHA-3 is not allowed in FIPS 140-only mode")
+ 	}
+ 
+-	if boring.Enabled && boring.IsRSAKeySupported(len(priv.Primes)) {
++	if boring.Enabled && boring.IsRSAKeySupported(len(priv.Primes)) && boring.IsPKCS1v15HashSupported(hash) {
+ 		bkey, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+@@ -339,7 +339,7 @@ func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte)
+ 		return errors.New("crypto/rsa: use of hash functions other than SHA-2 or SHA-3 is not allowed in FIPS 140-only mode")
+ 	}
+ 
+-	if boring.Enabled {
++	if boring.Enabled && boring.IsPKCS1v15HashSupported(hash) {
+ 		bkey, err := boringPublicKey(pub)
+ 		if err != nil {
+ 			return err
+diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
+index 7d7115cff81cea..d3ba67fe4d0611 100644
+--- a/src/crypto/rsa/pss_test.go
++++ b/src/crypto/rsa/pss_test.go
+@@ -15,6 +15,7 @@ import (
+ 	"crypto/sha256"
+ 	"crypto/sha512"
+ 	"encoding/hex"
++	"internal/goexperiment"
+ 	"math/big"
+ 	"os"
+ 	"strconv"
+@@ -103,8 +104,10 @@ func TestPSSGolden(t *testing.T) {
+ 			h.Reset()
+ 			h.Write(msg)
+ 			hashed = h.Sum(hashed[:0])
+-
+ 			if err := VerifyPSS(key, hash, hashed, sig, opts); err != nil {
++				if goexperiment.DarwinCrypto && key.N.BitLen() == 1025 {
++					t.Skip("CommonCrypto doesn't support golden test entries with this key size")
++				}
+ 				t.Error(err)
+ 			}
+ 		default:
+diff --git a/src/go.mod b/src/go.mod
+index e9da0eb1301b93..f03fcd766104e9 100644
+--- a/src/go.mod
++++ b/src/go.mod
+@@ -4,6 +4,7 @@ go 1.24
+ 
+ require (
+ 	github.com/golang-fips/openssl/v2 v2.0.4-0.20241211125030-65f2a3ae34cf
++	github.com/microsoft/go-crypto-darwin v0.0.2-0.20250107204503-9cc4ff035cc1
+ 	github.com/microsoft/go-crypto-winnative v0.0.0-20241212090637-6d419040e383
+ 	golang.org/x/crypto v0.30.0
+ 	golang.org/x/net v0.32.1-0.20241206180132-552d8ac903a1
+diff --git a/src/go.sum b/src/go.sum
+index b464f023942b74..90bd105cd407fb 100644
+--- a/src/go.sum
++++ b/src/go.sum
+@@ -1,5 +1,7 @@
+ github.com/golang-fips/openssl/v2 v2.0.4-0.20241211125030-65f2a3ae34cf h1:gkjE7LMxjlaSn8fdvbT/HJrpGcW/ZnwYpps7sSBhLD4=
+ github.com/golang-fips/openssl/v2 v2.0.4-0.20241211125030-65f2a3ae34cf/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
++github.com/microsoft/go-crypto-darwin v0.0.2-0.20250107204503-9cc4ff035cc1 h1:T8v8j/vr3sqmsP3BuriGfTYWu2JpEF3QoisX6hOjerU=
++github.com/microsoft/go-crypto-darwin v0.0.2-0.20250107204503-9cc4ff035cc1/go.mod h1:LyP4oZ0QcysEJdqUTOk9ngNFArRFK94YRImkoJ8julQ=
+ github.com/microsoft/go-crypto-winnative v0.0.0-20241212090637-6d419040e383 h1:fMAxrMWT19/kkIZIuB9cjqW8SqRxCH2+2ZiZr5qrpuI=
+ github.com/microsoft/go-crypto-winnative v0.0.0-20241212090637-6d419040e383/go.mod h1:JkxQeL8dGcyCuKjn1Etz4NmQrOMImMy4BA9hptEfVFA=
+ golang.org/x/crypto v0.30.0 h1:RwoQn3GkWiMkzlX562cLB7OxWvjH1L8xutO2WoJcRoY=
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index 1fcadbf6c19d79..b0da426bf18177 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -519,6 +519,8 @@ var depsRules = `
+ 	< github.com/microsoft/go-crypto-winnative/internal/sysdll
+ 	< github.com/microsoft/go-crypto-winnative/internal/bcrypt
+ 	< github.com/microsoft/go-crypto-winnative/cng
++	< github.com/microsoft/go-crypto-darwin/internal/cryptokit
++	< github.com/microsoft/go-crypto-darwin/xcrypto
+ 	< github.com/golang-fips/openssl/v2/internal/subtle
+ 	< github.com/golang-fips/openssl/v2
+ 	< crypto/internal/boring
+@@ -546,6 +548,7 @@ var depsRules = `
+ 	CRYPTO, FMT, math/big
+ 	< github.com/microsoft/go-crypto-winnative/cng/bbig
+ 	< github.com/golang-fips/openssl/v2/bbig
++	< github.com/microsoft/go-crypto-darwin/bbig
+ 	< crypto/internal/boring/bbig
+ 	< crypto/internal/backend/bbig
+ 	< crypto/rand
+@@ -860,7 +863,7 @@ func findImports(pkg string) ([]string, error) {
+ 	}
+ 	var imports []string
+ 	var haveImport = map[string]bool{}
+-	if pkg == "crypto/internal/boring" || pkg == "github.com/golang-fips/openssl/v2" {
++	if pkg == "crypto/internal/boring" || pkg == "github.com/golang-fips/openssl/v2" || strings.HasPrefix(pkg, "github.com/microsoft/go-crypto-darwin") {
+ 		haveImport["C"] = true // kludge: prevent C from appearing in crypto/internal/boring imports
+ 	}
+ 	fset := token.NewFileSet()
+diff --git a/src/go/build/vendor_test.go b/src/go/build/vendor_test.go
+index 1d0b9b20e9b1d4..6092c93d4c5b26 100644
+--- a/src/go/build/vendor_test.go
++++ b/src/go/build/vendor_test.go
+@@ -24,6 +24,7 @@ var allowedPackagePrefixes = []string{
+ 	"rsc.io/markdown",
+ 	"github.com/golang-fips/openssl",
+ 	"github.com/microsoft/go-crypto-winnative",
++	"github.com/microsoft/go-crypto-darwin",
+ }
+ 
+ // Verify that the vendor directories contain only packages matching the list above.
+diff --git a/src/internal/goexperiment/exp_darwincrypto_off.go b/src/internal/goexperiment/exp_darwincrypto_off.go
+new file mode 100644
+index 00000000000000..bc4440e01419fb
+--- /dev/null
++++ b/src/internal/goexperiment/exp_darwincrypto_off.go
+@@ -0,0 +1,9 @@
++// Code generated by mkconsts.go. DO NOT EDIT.
++
++//go:build !goexperiment.darwincrypto
++// +build !goexperiment.darwincrypto
++
++package goexperiment
++
++const DarwinCrypto = false
++const DarwinCryptoInt = 0
+diff --git a/src/internal/goexperiment/exp_darwincrypto_on.go b/src/internal/goexperiment/exp_darwincrypto_on.go
+new file mode 100644
+index 00000000000000..3215ce2784e94d
+--- /dev/null
++++ b/src/internal/goexperiment/exp_darwincrypto_on.go
+@@ -0,0 +1,9 @@
++// Code generated by mkconsts.go. DO NOT EDIT.
++
++//go:build goexperiment.darwincrypto
++// +build goexperiment.darwincrypto
++
++package goexperiment
++
++const DarwinCrypto = true
++const DarwinCryptoInt = 1
+diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
+index c6f64c18bdd13f..e6c9b7d5e62dc0 100644
+--- a/src/internal/goexperiment/flags.go
++++ b/src/internal/goexperiment/flags.go
+@@ -61,6 +61,7 @@ type Flags struct {
+ 	BoringCrypto      bool
+ 	OpenSSLCrypto     bool
+ 	CNGCrypto         bool
++	DarwinCrypto      bool
+ 
+ 	// SystemCrypto enables the OpenSSL, CNG or Darwin crypto experiment depending on
+ 	// which one is appropriate on the target GOOS.

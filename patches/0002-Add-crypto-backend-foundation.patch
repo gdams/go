@@ -590,7 +590,7 @@ index 039bd82ed21f9f..69a97d9bf250be 100644
  	panic("boringcrypto: not available")
 diff --git a/src/crypto/ed25519/boring.go b/src/crypto/ed25519/boring.go
 new file mode 100644
-index 00000000000000..3a7d7b76c8d8d7
+index 00000000000000..ff5c426b4fdaea
 --- /dev/null
 +++ b/src/crypto/ed25519/boring.go
 @@ -0,0 +1,71 @@
@@ -619,11 +619,11 @@ index 00000000000000..3a7d7b76c8d8d7
 +}
 +
 +type boringPub struct {
-+	key  *boring.PublicKeyEd25519
++	key  boring.PublicKeyEd25519
 +	orig [PublicKeySize]byte
 +}
 +
-+func boringPublicKey(pub PublicKey) (*boring.PublicKeyEd25519, error) {
++func boringPublicKey(pub PublicKey) (boring.PublicKeyEd25519, error) {
 +	// Use the pointer to the underlying pub array as key.
 +	p := unsafe.SliceData(pub)
 +	b := pubCache.Get(p)
@@ -635,7 +635,7 @@ index 00000000000000..3a7d7b76c8d8d7
 +	copy(b.orig[:], pub)
 +	key, err := boring.NewPublicKeyEd25119(b.orig[:])
 +	if err != nil {
-+		return nil, err
++		return key, err
 +	}
 +	b.key = key
 +	pubCache.Put(p, b)
@@ -643,11 +643,11 @@ index 00000000000000..3a7d7b76c8d8d7
 +}
 +
 +type boringPriv struct {
-+	key  *boring.PrivateKeyEd25519
++	key  boring.PrivateKeyEd25519
 +	orig [PrivateKeySize]byte
 +}
 +
-+func boringPrivateKey(priv PrivateKey) (*boring.PrivateKeyEd25519, error) {
++func boringPrivateKey(priv PrivateKey) (boring.PrivateKeyEd25519, error) {
 +	// Use the pointer to the underlying priv array as key.
 +	p := unsafe.SliceData(priv)
 +	b := privCache.Get(p)
@@ -659,7 +659,7 @@ index 00000000000000..3a7d7b76c8d8d7
 +	copy(b.orig[:], priv)
 +	key, err := boring.NewPrivateKeyEd25119(b.orig[:])
 +	if err != nil {
-+		return nil, err
++		return key, err
 +	}
 +	b.key = key
 +	privCache.Put(p, b)
@@ -793,7 +793,7 @@ index c1f8ff784e4a5c..308d814ff6302b 100644
  		return errors.New("ed25519: expected opts.Hash zero (unhashed message, for standard Ed25519) or SHA-512 (for Ed25519ph)")
 diff --git a/src/crypto/ed25519/notboring.go b/src/crypto/ed25519/notboring.go
 new file mode 100644
-index 00000000000000..b0cdd44d81c753
+index 00000000000000..77b69a3be88183
 --- /dev/null
 +++ b/src/crypto/ed25519/notboring.go
 @@ -0,0 +1,16 @@
@@ -807,10 +807,10 @@ index 00000000000000..b0cdd44d81c753
 +
 +import boring "crypto/internal/backend"
 +
-+func boringPublicKey(PublicKey) (*boring.PublicKeyEd25519, error) {
++func boringPublicKey(PublicKey) (boring.PublicKeyEd25519, error) {
 +	panic("boringcrypto: not available")
 +}
-+func boringPrivateKey(PrivateKey) (*boring.PrivateKeyEd25519, error) {
++func boringPrivateKey(PrivateKey) (boring.PrivateKeyEd25519, error) {
 +	panic("boringcrypto: not available")
 +}
 diff --git a/src/crypto/hkdf/hkdf.go b/src/crypto/hkdf/hkdf.go
@@ -936,7 +936,7 @@ index 00000000000000..c2c06d3bff8c74
 +}
 diff --git a/src/crypto/internal/backend/bbig/big.go b/src/crypto/internal/backend/bbig/big.go
 new file mode 100644
-index 00000000000000..20251a290dc2e0
+index 00000000000000..ab3f30825dcfa1
 --- /dev/null
 +++ b/src/crypto/internal/backend/bbig/big.go
 @@ -0,0 +1,17 @@
@@ -944,7 +944,7 @@ index 00000000000000..20251a290dc2e0
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
 +
-+//go:build !goexperiment.systemcrypto
++//go:build !goexperiment.systemcrypto || (goexperiment.darwincrypto && !cgo)
 +
 +package bbig
 +
@@ -1148,7 +1148,7 @@ index 00000000000000..83691d7dd42d51
 +}
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
-index 00000000000000..71e0ec9dc25a02
+index 00000000000000..06e19c55345187
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
 @@ -0,0 +1,229 @@
@@ -1317,37 +1317,37 @@ index 00000000000000..71e0ec9dc25a02
 +
 +type PublicKeyEd25519 struct{}
 +
-+func (k *PublicKeyEd25519) Bytes() ([]byte, error) {
++func (k PublicKeyEd25519) Bytes() ([]byte, error) {
 +	panic("cryptobackend: not available")
 +}
 +
 +type PrivateKeyEd25519 struct{}
 +
-+func (k *PrivateKeyEd25519) Bytes() ([]byte, error) {
++func (k PrivateKeyEd25519) Bytes() ([]byte, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func GenerateKeyEd25519() (*PrivateKeyEd25519, error) {
++func GenerateKeyEd25519() (PrivateKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func NewPrivateKeyEd25119(priv []byte) (*PrivateKeyEd25519, error) {
++func NewPrivateKeyEd25119(priv []byte) (PrivateKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func NewPublicKeyEd25119(pub []byte) (*PublicKeyEd25519, error) {
++func NewPublicKeyEd25119(pub []byte) (PublicKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func NewPrivateKeyEd25519FromSeed(seed []byte) (*PrivateKeyEd25519, error) {
++func NewPrivateKeyEd25519FromSeed(seed []byte) (PrivateKeyEd25519, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func SignEd25519(priv *PrivateKeyEd25519, message []byte) ([]byte, error) {
++func SignEd25519(priv PrivateKeyEd25519, message []byte) ([]byte, error) {
 +	panic("cryptobackend: not available")
 +}
 +
-+func VerifyEd25519(pub *PublicKeyEd25519, message, sig []byte) error {
++func VerifyEd25519(pub PublicKeyEd25519, message, sig []byte) error {
 +	panic("cryptobackend: not available")
 +}
 +
