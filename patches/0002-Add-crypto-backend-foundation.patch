@@ -2125,24 +2125,20 @@ index 7c75977ad3ffb2..b9db95ca7b9d5a 100644
  
  	if err := hs.processClientHello(); err != nil {
 diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake_server_tls13.go
-index 3552d89ba3bc6f..cefacaca28bae0 100644
+index 3552d89ba3bc6f..b3c4c8261887d0 100644
 --- a/src/crypto/tls/handshake_server_tls13.go
 +++ b/src/crypto/tls/handshake_server_tls13.go
-@@ -9,12 +9,13 @@ import (
+@@ -8,8 +8,9 @@ import (
+ 	"bytes"
  	"context"
  	"crypto"
++	"crypto/hkdf"
  	"crypto/hmac"
 -	"crypto/internal/fips140/hkdf"
 +	boring "crypto/internal/backend"
  	"crypto/internal/fips140/mlkem"
  	"crypto/internal/fips140/tls13"
  	"crypto/internal/hpke"
- 	"crypto/rsa"
- 	"crypto/tls/internal/fips140tls"
-+	"cryto/hkdf"
- 	"errors"
- 	"hash"
- 	"internal/byteorder"
 @@ -477,6 +478,15 @@ func cloneHash(in hash.Hash, h crypto.Hash) hash.Hash {
  	}
  	marshaler, ok := in.(binaryMarshaler)
