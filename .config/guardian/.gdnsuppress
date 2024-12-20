@@ -1,8 +1,8 @@
 {
-  "hydrated": false,
+  "hydrated": true,
   "properties": {
     "helpUri": "https://eng.ms/docs/microsoft-security/security/azure-security/cloudai-security-fundamentals-engineering/security-integration/guardian-wiki/microsoft-guardian/general/suppressions",
-    "hydrationStatus": "This file does not contain identifying data. It is safe to check into your repo. To hydrate this file with identifying data, run `guardian hydrate --help` and follow the guidance."
+    "hydrationStatus": "This file is hydrated. This is ok, it doesn't contain sensitive information."
   },
   "version": "1.0.0",
   "suppressionSets": {
@@ -13,13 +13,149 @@
     }
   },
   "results": {
-    "d5ce1218657b3f7da8e9a6ac55d72833387257e76e39d837edfd5c62781b9b97": {
-      "signature": "d5ce1218657b3f7da8e9a6ac55d72833387257e76e39d837edfd5c62781b9b97",
+    "dd76b3defecd301787000102e3ce76506d45147b98fc4accb410b87097b2f0dd": {
+      "signature": "dd76b3defecd301787000102e3ce76506d45147b98fc4accb410b87097b2f0dd",
       "alternativeSignatures": [],
+      "target": "go/src/crypto/ecdh/ecdh_test.go",
+      "line": 128,
       "memberOf": [
         "default"
       ],
-      "createdDate": "2024-06-10 09:31:52Z"
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "6b250bd6def22ac84e477b4d22ec0b12cb69721002a7fe0fccf23ff5a7dfa688": {
+      "signature": "6b250bd6def22ac84e477b4d22ec0b12cb69721002a7fe0fccf23ff5a7dfa688",
+      "alternativeSignatures": [],
+      "target": "go/src/crypto/ecdh/ecdh_test.go",
+      "line": 136,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "877868030fa2e6114057d685aea3f4ec90d3190dcfe0e0ae1d86a3a4094fad87": {
+      "signature": "877868030fa2e6114057d685aea3f4ec90d3190dcfe0e0ae1d86a3a4094fad87",
+      "alternativeSignatures": [],
+      "target": "go/src/crypto/ecdh/ecdh_test.go",
+      "line": 147,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "3f72337007e55d003a9f252112dbaead6ddf0f89bac847d528b44c263ddce0e1": {
+      "signature": "3f72337007e55d003a9f252112dbaead6ddf0f89bac847d528b44c263ddce0e1",
+      "alternativeSignatures": [],
+      "target": "go/src/crypto/ecdh/ecdh_test.go",
+      "line": 154,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "1ebc50c2b5fecaf320705d05137b2d29a3851823251d6224fc6223ca653b7c02": {
+      "signature": "1ebc50c2b5fecaf320705d05137b2d29a3851823251d6224fc6223ca653b7c02",
+      "alternativeSignatures": [],
+      "target": "go/src/crypto/tls/example_test.go",
+      "line": 165,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0020",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "3d4c2bb9f6a10eec92970320f48c0ee107981491a38c0869e054c54f156aafa1": {
+      "signature": "3d4c2bb9f6a10eec92970320f48c0ee107981491a38c0869e054c54f156aafa1",
+      "alternativeSignatures": [],
+      "target": "go/src/crypto/x509/platform_root_key.pem",
+      "line": 1,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0020",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "ebf235ebc38c8301d92931d07d3ba98a286fc46d53f24467f7d804c7d907a88b": {
+      "signature": "ebf235ebc38c8301d92931d07d3ba98a286fc46d53f24467f7d804c7d907a88b",
+      "alternativeSignatures": [],
+      "target": "go/src/crypto/tls/testdata/example-key.pem",
+      "line": 1,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0020",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "d00714f4abdecfa0f2b96d616a8631088ace81abf5f0688c05937dcf9cc4bb5e": {
+      "signature": "d00714f4abdecfa0f2b96d616a8631088ace81abf5f0688c05937dcf9cc4bb5e",
+      "alternativeSignatures": [],
+      "target": "go/src/cmd/vendor/rsc.io/markdown/emoji.go",
+      "line": 1432,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-16 10:13:25Z"
+    },
+    "d5ce1218657b3f7da8e9a6ac55d72833387257e76e39d837edfd5c62781b9b97": {
+      "signature": "d5ce1218657b3f7da8e9a6ac55d72833387257e76e39d837edfd5c62781b9b97",
+      "alternativeSignatures": [],
+      "target": "go/src/crypto/internal/hpke/testdata/rfc9180-vectors.json",
+      "line": 1,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-20 00:07:58Z"
+    },
+    "e194d8614310e9f30653b5fb8ae34c07968131fce828c224c30536e1cb217e9e": {
+      "signature": "e194d8614310e9f30653b5fb8ae34c07968131fce828c224c30536e1cb217e9e",
+      "alternativeSignatures": [],
+      "target": "go/src/cmd/go/internal/auth/gitauth_test.go",
+      "line": 51,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-20 19:29:53Z"
+    },
+    "dd34d1fbdcab2b03eccc9e9544d25b6830f28ef5f72e815035df834a6b3e57e4": {
+      "signature": "dd34d1fbdcab2b03eccc9e9544d25b6830f28ef5f72e815035df834a6b3e57e4",
+      "alternativeSignatures": [],
+      "target": "go/src/cmd/go/testdata/script/goauth_git.txt",
+      "line": 72,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0060",
+      "createdDate": "2024-12-20 19:29:53Z"
+    },
+    "2d264e899faa2c2dcf9c3c63acad2f0b0b7b9464fe1657d0313d8aa477103a3c": {
+      "signature": "2d264e899faa2c2dcf9c3c63acad2f0b0b7b9464fe1657d0313d8aa477103a3c",
+      "alternativeSignatures": [],
+      "target": "go/src/cmd/go/testdata/script/goauth_userauth.txt",
+      "line": 126,
+      "memberOf": [
+        "default"
+      ],
+      "tool": "credscan",
+      "ruleId": "CSCAN-GENERAL0120",
+      "createdDate": "2024-12-20 19:29:53Z"
     }
   }
 }
