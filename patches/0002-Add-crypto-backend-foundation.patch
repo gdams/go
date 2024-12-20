@@ -64,6 +64,7 @@ Subject: [PATCH] Add crypto backend foundation
  src/crypto/tls/fipsonly/fipsonly.go           |   2 +-
  src/crypto/tls/fipsonly/fipsonly_test.go      |   2 +-
  src/crypto/tls/handshake_client.go            |  10 +-
+ src/crypto/tls/handshake_client_tls13.go      |  14 +-
  src/crypto/tls/handshake_server.go            |  10 +-
  src/crypto/tls/handshake_server_tls13.go      |  24 +-
  src/crypto/tls/internal/fips140tls/fipstls.go |   3 +-
@@ -75,7 +76,7 @@ Subject: [PATCH] Add crypto backend foundation
  src/hash/notboring_test.go                    |   9 +
  src/net/smtp/smtp_test.go                     |  72 ++++--
  src/runtime/runtime_boring.go                 |   5 +
- 71 files changed, 1170 insertions(+), 83 deletions(-)
+ 72 files changed, 1181 insertions(+), 86 deletions(-)
  create mode 100644 src/crypto/dsa/boring.go
  create mode 100644 src/crypto/dsa/notboring.go
  create mode 100644 src/crypto/ed25519/boring.go
@@ -2103,6 +2104,48 @@ index ecc62ff2edefc0..776fec96f0f349 100644
  	c := hs.c
  
  	isResume, err := hs.processServerHello()
+diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
+index 38c6025db74ee8..356036321d6283 100644
+--- a/src/crypto/tls/handshake_client_tls13.go
++++ b/src/crypto/tls/handshake_client_tls13.go
+@@ -8,8 +8,8 @@ import (
+ 	"bytes"
+ 	"context"
+ 	"crypto"
++	"crypto/hkdf"
+ 	"crypto/hmac"
+-	"crypto/internal/fips140/hkdf"
+ 	"crypto/internal/fips140/mlkem"
+ 	"crypto/internal/fips140/tls13"
+ 	"crypto/rsa"
+@@ -91,8 +91,12 @@ func (hs *clientHandshakeStateTLS13) handshake() error {
+ 		confTranscript.Write(hs.serverHello.original[:30])
+ 		confTranscript.Write(make([]byte, 8))
+ 		confTranscript.Write(hs.serverHello.original[38:])
++		secret, err := hkdf.Extract(hs.suite.hash.New, hs.echContext.innerHello.random, nil)
++		if err != nil {
++			return err
++		}
+ 		acceptConfirmation := tls13.ExpandLabel(hs.suite.hash.New,
+-			hkdf.Extract(hs.suite.hash.New, hs.echContext.innerHello.random, nil),
++			secret,
+ 			"ech accept confirmation",
+ 			confTranscript.Sum(nil),
+ 			8,
+@@ -268,8 +272,12 @@ func (hs *clientHandshakeStateTLS13) processHelloRetryRequest() error {
+ 			copy(hrrHello, hs.serverHello.original)
+ 			hrrHello = bytes.Replace(hrrHello, hs.serverHello.encryptedClientHello, make([]byte, 8), 1)
+ 			confTranscript.Write(hrrHello)
++			secret, err := hkdf.Extract(hs.suite.hash.New, hs.echContext.innerHello.random, nil)
++			if err != nil {
++				return err
++			}
+ 			acceptConfirmation := tls13.ExpandLabel(hs.suite.hash.New,
+-				hkdf.Extract(hs.suite.hash.New, hs.echContext.innerHello.random, nil),
++				secret,
+ 				"hrr ech accept confirmation",
+ 				confTranscript.Sum(nil),
+ 				8,
 diff --git a/src/crypto/tls/handshake_server.go b/src/crypto/tls/handshake_server.go
 index 7c75977ad3ffb2..b9db95ca7b9d5a 100644
 --- a/src/crypto/tls/handshake_server.go
