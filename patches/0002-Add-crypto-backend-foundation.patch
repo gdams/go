@@ -69,14 +69,14 @@ Subject: [PATCH] Add crypto backend foundation
  src/crypto/tls/handshake_server_tls13.go      |  24 +-
  src/crypto/tls/internal/fips140tls/fipstls.go |   3 +-
  src/crypto/tls/prf.go                         |  41 ++++
- src/go/build/deps_test.go                     |   8 +-
+ src/go/build/deps_test.go                     |   6 +
  src/hash/boring_test.go                       |   9 +
  src/hash/example_test.go                      |   2 +
  src/hash/marshal_test.go                      |   5 +
  src/hash/notboring_test.go                    |   9 +
  src/net/smtp/smtp_test.go                     |  72 ++++--
  src/runtime/runtime_boring.go                 |   5 +
- 72 files changed, 1181 insertions(+), 86 deletions(-)
+ 72 files changed, 1180 insertions(+), 85 deletions(-)
  create mode 100644 src/crypto/dsa/boring.go
  create mode 100644 src/crypto/dsa/notboring.go
  create mode 100644 src/crypto/ed25519/boring.go
@@ -556,7 +556,7 @@ index 275c60b4de49eb..ff8bddf28c4545 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index 77727aaf96befb..dedaa0fe4100b1 100644
+index 0f9749975ffba9..41ac17df22d7d7 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -18,8 +18,8 @@ import (
@@ -1502,10 +1502,10 @@ index 437d9b9d4c0e0d..5bc3e7b0f8435f 100644
  
  		h := New()
 diff --git a/src/crypto/pbkdf2/pbkdf2.go b/src/crypto/pbkdf2/pbkdf2.go
-index 0fdd9e822d40a5..bc8e560487a6ef 100644
+index d40daab5e5b879..c32b3fd82b99b0 100644
 --- a/src/crypto/pbkdf2/pbkdf2.go
 +++ b/src/crypto/pbkdf2/pbkdf2.go
-@@ -19,6 +19,7 @@ pbkdf2.Key.
+@@ -11,6 +11,7 @@
  package pbkdf2
  
  import (
@@ -1513,7 +1513,7 @@ index 0fdd9e822d40a5..bc8e560487a6ef 100644
  	"crypto/internal/fips140/pbkdf2"
  	"crypto/internal/fips140only"
  	"errors"
-@@ -53,5 +54,8 @@ func Key[Hash hash.Hash](h func() Hash, password string, salt []byte, iter, keyL
+@@ -45,5 +46,8 @@ func Key[Hash hash.Hash](h func() Hash, password string, salt []byte, iter, keyL
  			return nil, errors.New("crypto/pbkdf2: use of hash functions other than SHA-2 or SHA-3 is not allowed in FIPS 140-only mode")
  		}
  	}
@@ -1812,7 +1812,7 @@ index fb23f003a6f217..be374dad6969d5 100644
  	"crypto/internal/fips140/rsa"
  	"crypto/internal/fips140only"
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 2474ab82dfa207..78e9b47f051484 100644
+index 2535661040273a..f9543d9cc89e7b 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -8,7 +8,7 @@ import (
@@ -2084,10 +2084,10 @@ index 027bc22c33c921..eba08da985f832 100644
  package fipsonly
  
 diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_client.go
-index ecc62ff2edefc0..776fec96f0f349 100644
+index 38bd417a0dca72..9eec202234fa94 100644
 --- a/src/crypto/tls/handshake_client.go
 +++ b/src/crypto/tls/handshake_client.go
-@@ -548,7 +548,15 @@ func (c *Conn) pickTLSVersion(serverHello *serverHelloMsg) error {
+@@ -549,7 +549,15 @@ func (c *Conn) pickTLSVersion(serverHello *serverHelloMsg) error {
  
  // Does the handshake, either a full one or resumes old session. Requires hs.c,
  // hs.hello, hs.serverHello, and, optionally, hs.session to be set.
@@ -2105,7 +2105,7 @@ index ecc62ff2edefc0..776fec96f0f349 100644
  
  	isResume, err := hs.processServerHello()
 diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
-index 38c6025db74ee8..356036321d6283 100644
+index c0396e75796add..819bc54822f0cb 100644
 --- a/src/crypto/tls/handshake_client_tls13.go
 +++ b/src/crypto/tls/handshake_client_tls13.go
 @@ -8,8 +8,8 @@ import (
@@ -2118,7 +2118,7 @@ index 38c6025db74ee8..356036321d6283 100644
  	"crypto/internal/fips140/mlkem"
  	"crypto/internal/fips140/tls13"
  	"crypto/rsa"
-@@ -91,8 +91,12 @@ func (hs *clientHandshakeStateTLS13) handshake() error {
+@@ -90,8 +90,12 @@ func (hs *clientHandshakeStateTLS13) handshake() error {
  		confTranscript.Write(hs.serverHello.original[:30])
  		confTranscript.Write(make([]byte, 8))
  		confTranscript.Write(hs.serverHello.original[38:])
@@ -2132,7 +2132,7 @@ index 38c6025db74ee8..356036321d6283 100644
  			"ech accept confirmation",
  			confTranscript.Sum(nil),
  			8,
-@@ -268,8 +272,12 @@ func (hs *clientHandshakeStateTLS13) processHelloRetryRequest() error {
+@@ -264,8 +268,12 @@ func (hs *clientHandshakeStateTLS13) processHelloRetryRequest() error {
  			copy(hrrHello, hs.serverHello.original)
  			hrrHello = bytes.Replace(hrrHello, hs.serverHello.encryptedClientHello, make([]byte, 8), 1)
  			confTranscript.Write(hrrHello)
@@ -2168,7 +2168,7 @@ index 7c75977ad3ffb2..b9db95ca7b9d5a 100644
  
  	if err := hs.processClientHello(); err != nil {
 diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake_server_tls13.go
-index 3552d89ba3bc6f..b3c4c8261887d0 100644
+index 76fff6974e7403..218d40171d2567 100644
 --- a/src/crypto/tls/handshake_server_tls13.go
 +++ b/src/crypto/tls/handshake_server_tls13.go
 @@ -8,8 +8,9 @@ import (
@@ -2318,47 +2318,41 @@ index e7369542a73270..ff52175e4ac636 100644
  	}
  }
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index cc7f4df7f388ea..58082b3636f209 100644
+index d9d985dca4ade4..d74e8959264349 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -491,9 +491,11 @@ var depsRules = `
+@@ -493,6 +493,8 @@ var depsRules = `
  	< crypto/internal/fips140/rsa
  	< FIPS;
  
 +	syscall < crypto/internal/backend/fips140;
 +
- 	FIPS < crypto/internal/fips140/check/checktest;
+ 	FIPS, internal/godebug < crypto/fips140;
  
--	FIPS, sync/atomic < crypto/tls/internal/fips140tls;
-+	FIPS, sync/atomic, crypto/internal/backend/fips140 < crypto/tls/internal/fips140tls;
- 
- 	FIPS, internal/godebug, hash < crypto/fips140, crypto/internal/fips140only;
- 
-@@ -505,6 +507,7 @@ var depsRules = `
- 	FIPS, crypto/internal/fips140only,
+ 	crypto, hash !< FIPS;
+@@ -506,12 +508,15 @@ var depsRules = `
+ 	FIPS, internal/godebug, hash, embed,
  	crypto/internal/boring/sig,
  	crypto/internal/boring/syso,
 +	encoding/binary,
- 	golang.org/x/sys/cpu,
- 	hash, embed
- 	< crypto
-@@ -514,7 +517,9 @@ var depsRules = `
- 
- 	crypto/cipher,
  	crypto/internal/boring/bcache
 +	crypto/internal/backend/fips140
+ 	< crypto/internal/fips140only
+ 	< crypto
+ 	< crypto/subtle
+ 	< crypto/cipher
  	< crypto/internal/boring
 +	< crypto/internal/backend
- 	< crypto/boring;
+ 	< crypto/boring
+ 	< crypto/aes,
+ 	  crypto/des,
+@@ -534,6 +539,7 @@ var depsRules = `
  
- 	crypto/boring
-@@ -546,6 +551,7 @@ var depsRules = `
- 	# CRYPTO-MATH is core bignum-based crypto - no cgo, net; fmt now ok.
  	CRYPTO, FMT, math/big
  	< crypto/internal/boring/bbig
 +	< crypto/internal/backend/bbig
  	< crypto/rand
- 	< crypto/ed25519
+ 	< crypto/ed25519 # depends on crypto/rand.Reader
  	< encoding/asn1
 diff --git a/src/hash/boring_test.go b/src/hash/boring_test.go
 new file mode 100644

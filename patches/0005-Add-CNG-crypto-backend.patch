@@ -507,11 +507,11 @@ index 0a58eccb57a869..b464f023942b74 100644
  golang.org/x/crypto v0.30.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
  golang.org/x/net v0.32.1-0.20241206180132-552d8ac903a1 h1:+Yk1FZ5E+/ewA0nOO/HRYs9E4yeqpGOShuSAdzCNNoQ=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 37cb128ba9409a..3ceabaebc7ea46 100644
+index 878585aa05a38a..ddf58226076db1 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -518,6 +518,10 @@ var depsRules = `
- 	crypto/cipher,
+@@ -511,6 +511,10 @@ var depsRules = `
+ 	encoding/binary,
  	crypto/internal/boring/bcache,
  	crypto/internal/backend/fips140
 +	< github.com/microsoft/go-crypto-winnative/internal/subtle
@@ -520,10 +520,10 @@ index 37cb128ba9409a..3ceabaebc7ea46 100644
 +	< github.com/microsoft/go-crypto-winnative/cng
  	< github.com/golang-fips/openssl/v2/internal/subtle
  	< github.com/golang-fips/openssl/v2
- 	< crypto/internal/boring
-@@ -552,6 +556,7 @@ var depsRules = `
+ 	< crypto/internal/fips140only
+@@ -540,6 +544,7 @@ var depsRules = `
+ 	# CRYPTO-MATH is crypto that exposes math/big APIs - no cgo, net; fmt now ok.
  
- 	# CRYPTO-MATH is core bignum-based crypto - no cgo, net; fmt now ok.
  	CRYPTO, FMT, math/big
 +	< github.com/microsoft/go-crypto-winnative/cng/bbig
  	< github.com/golang-fips/openssl/v2/bbig
