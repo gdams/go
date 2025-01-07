@@ -69,14 +69,14 @@ Subject: [PATCH] Add crypto backend foundation
  src/crypto/tls/handshake_server_tls13.go      |  24 +-
  src/crypto/tls/internal/fips140tls/fipstls.go |   3 +-
  src/crypto/tls/prf.go                         |  41 ++++
- src/go/build/deps_test.go                     |   6 +
+ src/go/build/deps_test.go                     |   8 +-
  src/hash/boring_test.go                       |   9 +
  src/hash/example_test.go                      |   2 +
  src/hash/marshal_test.go                      |   5 +
  src/hash/notboring_test.go                    |   9 +
  src/net/smtp/smtp_test.go                     |  72 ++++--
  src/runtime/runtime_boring.go                 |   5 +
- 72 files changed, 1180 insertions(+), 85 deletions(-)
+ 72 files changed, 1181 insertions(+), 86 deletions(-)
  create mode 100644 src/crypto/dsa/boring.go
  create mode 100644 src/crypto/dsa/notboring.go
  create mode 100644 src/crypto/ed25519/boring.go
@@ -2318,7 +2318,7 @@ index e7369542a73270..ff52175e4ac636 100644
  	}
  }
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index d9d985dca4ade4..d74e8959264349 100644
+index d9d985dca4ade4..de88160bcf3a1c 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
 @@ -493,6 +493,8 @@ var depsRules = `
@@ -2354,6 +2354,15 @@ index d9d985dca4ade4..d74e8959264349 100644
  	< crypto/rand
  	< crypto/ed25519 # depends on crypto/rand.Reader
  	< encoding/asn1
+@@ -547,7 +553,7 @@ var depsRules = `
+ 
+ 	# TLS, Prince of Dependencies.
+ 
+-	FIPS, sync/atomic < crypto/tls/internal/fips140tls;
++	FIPS, sync/atomic, crypto/internal/backend/fips140 < crypto/tls/internal/fips140tls;
+ 
+ 	crypto/internal/boring/sig, crypto/tls/internal/fips140tls < crypto/tls/fipsonly;
+ 
 diff --git a/src/hash/boring_test.go b/src/hash/boring_test.go
 new file mode 100644
 index 00000000000000..52748c44698076

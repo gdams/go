@@ -507,20 +507,20 @@ index 0a58eccb57a869..b464f023942b74 100644
  golang.org/x/crypto v0.30.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
  golang.org/x/net v0.32.1-0.20241206180132-552d8ac903a1 h1:+Yk1FZ5E+/ewA0nOO/HRYs9E4yeqpGOShuSAdzCNNoQ=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 878585aa05a38a..ddf58226076db1 100644
+index 339cb53d8a1468..1fcadbf6c19d79 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -511,6 +511,10 @@ var depsRules = `
- 	encoding/binary,
- 	crypto/internal/boring/bcache,
- 	crypto/internal/backend/fips140
+@@ -515,6 +515,10 @@ var depsRules = `
+ 	< crypto
+ 	< crypto/subtle
+ 	< crypto/cipher
 +	< github.com/microsoft/go-crypto-winnative/internal/subtle
 +	< github.com/microsoft/go-crypto-winnative/internal/sysdll
 +	< github.com/microsoft/go-crypto-winnative/internal/bcrypt
 +	< github.com/microsoft/go-crypto-winnative/cng
  	< github.com/golang-fips/openssl/v2/internal/subtle
  	< github.com/golang-fips/openssl/v2
- 	< crypto/internal/fips140only
+ 	< crypto/internal/boring
 @@ -540,6 +544,7 @@ var depsRules = `
  	# CRYPTO-MATH is crypto that exposes math/big APIs - no cgo, net; fmt now ok.
  
