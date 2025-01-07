@@ -27,10 +27,10 @@ Subject: [PATCH] Add OpenSSL crypto backend
  create mode 100644 src/internal/goexperiment/exp_opensslcrypto_on.go
 
 diff --git a/src/cmd/dist/test.go b/src/cmd/dist/test.go
-index 5a981f8bc147de..b38d84db20172a 100644
+index 06bd01bc5bb995..9561bf2bca9a9d 100644
 --- a/src/cmd/dist/test.go
 +++ b/src/cmd/dist/test.go
-@@ -1322,12 +1322,11 @@ func (t *tester) registerCgoTests(heading string) {
+@@ -1324,12 +1324,11 @@ func (t *tester) registerCgoTests(heading string) {
  			// a C linker warning on Linux.
  			// in function `bio_ip_and_port_to_socket_and_addr':
  			// warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
@@ -478,7 +478,7 @@ index 00000000000000..d3a663737a1ce3
 +	return openssl.VerifyDSA(pub, hashed, sig)
 +}
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 78e9b47f051484..4fdfcdc4c91004 100644
+index f9543d9cc89e7b..f07c75821aab13 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -846,6 +846,9 @@ func TestDecryptOAEP(t *testing.T) {
@@ -514,30 +514,34 @@ index 9e661352f16e0b..0a58eccb57a869 100644
  golang.org/x/crypto v0.30.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
  golang.org/x/net v0.32.1-0.20241206180132-552d8ac903a1 h1:+Yk1FZ5E+/ewA0nOO/HRYs9E4yeqpGOShuSAdzCNNoQ=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 58082b3636f209..37cb128ba9409a 100644
+index de88160bcf3a1c..339cb53d8a1468 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -516,8 +516,10 @@ var depsRules = `
- 	< crypto/sha3;
- 
- 	crypto/cipher,
+@@ -509,12 +509,14 @@ var depsRules = `
+ 	crypto/internal/boring/sig,
+ 	crypto/internal/boring/syso,
+ 	encoding/binary,
 -	crypto/internal/boring/bcache
 +	crypto/internal/boring/bcache,
  	crypto/internal/backend/fips140
+ 	< crypto/internal/fips140only
+ 	< crypto
+ 	< crypto/subtle
+ 	< crypto/cipher
 +	< github.com/golang-fips/openssl/v2/internal/subtle
 +	< github.com/golang-fips/openssl/v2
  	< crypto/internal/boring
  	< crypto/internal/backend
- 	< crypto/boring;
-@@ -550,6 +552,7 @@ var depsRules = `
+ 	< crypto/boring
+@@ -538,6 +540,7 @@ var depsRules = `
+ 	# CRYPTO-MATH is crypto that exposes math/big APIs - no cgo, net; fmt now ok.
  
- 	# CRYPTO-MATH is core bignum-based crypto - no cgo, net; fmt now ok.
  	CRYPTO, FMT, math/big
 +	< github.com/golang-fips/openssl/v2/bbig
  	< crypto/internal/boring/bbig
  	< crypto/internal/backend/bbig
  	< crypto/rand
-@@ -845,7 +848,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+@@ -842,7 +845,7 @@ var buildIgnore = []byte("\n//go:build ignore")
  
  func findImports(pkg string) ([]string, error) {
  	vpkg := pkg
@@ -546,7 +550,7 @@ index 58082b3636f209..37cb128ba9409a 100644
  		vpkg = "vendor/" + pkg
  	}
  	dir := filepath.Join(Default.GOROOT, "src", vpkg)
-@@ -855,7 +858,7 @@ func findImports(pkg string) ([]string, error) {
+@@ -852,7 +855,7 @@ func findImports(pkg string) ([]string, error) {
  	}
  	var imports []string
  	var haveImport = map[string]bool{}
