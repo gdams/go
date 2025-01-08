@@ -84,7 +84,7 @@ index 00000000000000..92623031fd87d0
 +var Dec = bbig.Dec
 diff --git a/src/crypto/internal/backend/cng_windows.go b/src/crypto/internal/backend/cng_windows.go
 new file mode 100644
-index 00000000000000..8b5416f5be0955
+index 00000000000000..86aac21a28cbee
 --- /dev/null
 +++ b/src/crypto/internal/backend/cng_windows.go
 @@ -0,0 +1,316 @@
@@ -483,7 +483,7 @@ index a4af0a2144870a..7d7115cff81cea 100644
  		t.Fatal(err)
  	}
 diff --git a/src/go.mod b/src/go.mod
-index 186ced4a1123a8..e9da0eb1301b93 100644
+index 186ced4a1123a8..897c3802237b4e 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -4,6 +4,7 @@ go 1.24
@@ -495,7 +495,7 @@ index 186ced4a1123a8..e9da0eb1301b93 100644
  	golang.org/x/net v0.32.1-0.20241206180132-552d8ac903a1
  )
 diff --git a/src/go.sum b/src/go.sum
-index 0a58eccb57a869..b464f023942b74 100644
+index 0a58eccb57a869..7cece574a42291 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,5 +1,7 @@

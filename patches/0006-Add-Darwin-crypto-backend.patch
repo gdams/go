@@ -688,28 +688,28 @@ index 7d7115cff81cea..d3ba67fe4d0611 100644
  			}
  		default:
 diff --git a/src/go.mod b/src/go.mod
-index e9da0eb1301b93..f03fcd766104e9 100644
+index 897c3802237b4e..0119f5ce8fe623 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -4,6 +4,7 @@ go 1.24
  
  require (
- 	github.com/golang-fips/openssl/v2 v2.0.4-0.20241211125030-65f2a3ae34cf
+ 	github.com/golang-fips/openssl/v2 v2.0.4-0.20250107115006-eb155dada337
 +	github.com/microsoft/go-crypto-darwin v0.0.2-0.20250107204503-9cc4ff035cc1
- 	github.com/microsoft/go-crypto-winnative v0.0.0-20241212090637-6d419040e383
+ 	github.com/microsoft/go-crypto-winnative v0.0.0-20250108090702-b49854c00e37
  	golang.org/x/crypto v0.30.0
  	golang.org/x/net v0.32.1-0.20241206180132-552d8ac903a1
 diff --git a/src/go.sum b/src/go.sum
-index b464f023942b74..90bd105cd407fb 100644
+index 7cece574a42291..6050c2fe0c5081 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,5 +1,7 @@
- github.com/golang-fips/openssl/v2 v2.0.4-0.20241211125030-65f2a3ae34cf h1:gkjE7LMxjlaSn8fdvbT/HJrpGcW/ZnwYpps7sSBhLD4=
- github.com/golang-fips/openssl/v2 v2.0.4-0.20241211125030-65f2a3ae34cf/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
+ github.com/golang-fips/openssl/v2 v2.0.4-0.20250107115006-eb155dada337 h1:OhuURhDVbg+f/BvlG+qT5sQVkutwhI0Kmsy7koQ4l9A=
+ github.com/golang-fips/openssl/v2 v2.0.4-0.20250107115006-eb155dada337/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
 +github.com/microsoft/go-crypto-darwin v0.0.2-0.20250107204503-9cc4ff035cc1 h1:T8v8j/vr3sqmsP3BuriGfTYWu2JpEF3QoisX6hOjerU=
 +github.com/microsoft/go-crypto-darwin v0.0.2-0.20250107204503-9cc4ff035cc1/go.mod h1:LyP4oZ0QcysEJdqUTOk9ngNFArRFK94YRImkoJ8julQ=
- github.com/microsoft/go-crypto-winnative v0.0.0-20241212090637-6d419040e383 h1:fMAxrMWT19/kkIZIuB9cjqW8SqRxCH2+2ZiZr5qrpuI=
- github.com/microsoft/go-crypto-winnative v0.0.0-20241212090637-6d419040e383/go.mod h1:JkxQeL8dGcyCuKjn1Etz4NmQrOMImMy4BA9hptEfVFA=
+ github.com/microsoft/go-crypto-winnative v0.0.0-20250108090702-b49854c00e37 h1:KB8xmJcFSPlZFMg2mxz5b6DCE8k1qpHy2HFevAJLELI=
+ github.com/microsoft/go-crypto-winnative v0.0.0-20250108090702-b49854c00e37/go.mod h1:JkxQeL8dGcyCuKjn1Etz4NmQrOMImMy4BA9hptEfVFA=
  golang.org/x/crypto v0.30.0 h1:RwoQn3GkWiMkzlX562cLB7OxWvjH1L8xutO2WoJcRoY=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
 index 1fcadbf6c19d79..b0da426bf18177 100644
