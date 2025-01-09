@@ -24,8 +24,9 @@ Subject: [PATCH] Add Darwin crypto backend
  .../goexperiment/exp_darwincrypto_off.go      |   9 +
  .../goexperiment/exp_darwincrypto_on.go       |   9 +
  src/internal/goexperiment/flags.go            |   1 +
+ src/net/lookup_test.go                        |   3 +
  src/runtime/pprof/vminfo_darwin_test.go       |   6 +
- 21 files changed, 520 insertions(+), 14 deletions(-)
+ 22 files changed, 523 insertions(+), 14 deletions(-)
  create mode 100644 src/crypto/internal/backend/bbig/big_darwin.go
  create mode 100644 src/crypto/internal/backend/darwin_darwin.go
  create mode 100644 src/crypto/internal/backend/fips140/darwin.go
@@ -847,6 +848,20 @@ index c6f64c18bdd13f..e6c9b7d5e62dc0 100644
  
  	// SystemCrypto enables the OpenSSL, CNG or Darwin crypto experiment depending on
  	// which one is appropriate on the target GOOS.
+diff --git a/src/net/lookup_test.go b/src/net/lookup_test.go
+index 514cbd098ae772..8ec689416dde1d 100644
+--- a/src/net/lookup_test.go
++++ b/src/net/lookup_test.go
+@@ -1501,6 +1501,9 @@ func TestLookupPortIPNetworkString(t *testing.T) {
+ }
+ 
+ func TestLookupNoSuchHost(t *testing.T) {
++	if runtime.GOOS == "darwin" {
++		t.Skip("skipping on darwin; see https://github.com/microsoft/go/issues/1394")
++	}
+ 	mustHaveExternalNetwork(t)
+ 
+ 	const testNXDOMAIN = "invalid.invalid."
 diff --git a/src/runtime/pprof/vminfo_darwin_test.go b/src/runtime/pprof/vminfo_darwin_test.go
 index 6d375c5d53368a..39154b000ddc67 100644
 --- a/src/runtime/pprof/vminfo_darwin_test.go
