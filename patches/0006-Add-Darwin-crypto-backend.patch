@@ -5,6 +5,7 @@ Subject: [PATCH] Add Darwin crypto backend
 
 ---
  .gitignore                                    |   2 +
+ src/cmd/dist/test.go                          |   7 +-
  src/cmd/go/go_boring_test.go                  |   9 +-
  src/cmd/go/testdata/script/darwin_no_cgo.txt  |   2 +
  src/crypto/ecdsa/ecdsa.go                     |   6 +-
@@ -26,7 +27,7 @@ Subject: [PATCH] Add Darwin crypto backend
  src/internal/goexperiment/flags.go            |   1 +
  src/net/lookup_test.go                        |   3 +
  src/runtime/pprof/vminfo_darwin_test.go       |   6 +
- 22 files changed, 523 insertions(+), 14 deletions(-)
+ 23 files changed, 529 insertions(+), 15 deletions(-)
  create mode 100644 src/crypto/internal/backend/bbig/big_darwin.go
  create mode 100644 src/crypto/internal/backend/darwin_darwin.go
  create mode 100644 src/crypto/internal/backend/fips140/darwin.go
@@ -47,6 +48,31 @@ index c6512e64a4ef39..b3b01db73b009d 100644
  # This file includes artifacts of Go build that should not be checked in.
  # For files created by specific development environment (e.g. editor),
  # use alternative ways to exclude files from git.
+diff --git a/src/cmd/dist/test.go b/src/cmd/dist/test.go
+index 0de6e80fd985a3..783632120eada8 100644
+--- a/src/cmd/dist/test.go
++++ b/src/cmd/dist/test.go
+@@ -876,7 +876,7 @@ func (t *tester) registerTests() {
+ 	}
+ 
+ 	if t.extLink() && !t.compileOnly {
+-		if goos != "android" { // Android does not support non-PIE linking
++		if goos != "android" && !(goos == "darwin" && (strings.Contains(goexperiment, "systemcrypto") || strings.Contains(goexperiment, "darwincrypto"))) { // Android does not support non-PIE linking
+ 			t.registerTest("external linking, -buildmode=exe",
+ 				&goTest{
+ 					variant:   "exe_external",
+@@ -1161,6 +1161,11 @@ func (t *tester) internalLink() bool {
+ 	if goos == "windows" && goarch == "arm64" {
+ 		return false
+ 	}
++	if goos == "darwin" && (strings.Contains(goexperiment, "systemcrypto") || strings.Contains(goexperiment, "darwincrypto")) {
++		// linkmode=internal isn't supported with system/darwin crypto.
++		// see https://github.com/microsoft/go-crypto-darwin/issues/33
++		return false
++	}
+ 	// Internally linking cgo is incomplete on some architectures.
+ 	// https://golang.org/issue/10373
+ 	// https://golang.org/issue/14449
 diff --git a/src/cmd/go/go_boring_test.go b/src/cmd/go/go_boring_test.go
 index 06478963f4be44..8111b143a1295b 100644
 --- a/src/cmd/go/go_boring_test.go
