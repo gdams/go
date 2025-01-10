@@ -5,9 +5,9 @@ Subject: [PATCH] Add BoringSSL crypto backend
 
 ---
  .../internal/backend/bbig/big_boring.go       |  12 +
- src/crypto/internal/backend/boring_linux.go   | 265 ++++++++++++++++++
+ src/crypto/internal/backend/boring_linux.go   | 267 ++++++++++++++++++
  src/crypto/internal/backend/fips140/boring.go |  11 +
- 3 files changed, 288 insertions(+)
+ 3 files changed, 290 insertions(+)
  create mode 100644 src/crypto/internal/backend/bbig/big_boring.go
  create mode 100644 src/crypto/internal/backend/boring_linux.go
  create mode 100644 src/crypto/internal/backend/fips140/boring.go
@@ -32,10 +32,10 @@ index 00000000000000..0b62cef68546d0
 +var Dec = bbig.Dec
 diff --git a/src/crypto/internal/backend/boring_linux.go b/src/crypto/internal/backend/boring_linux.go
 new file mode 100644
-index 00000000000000..e1ebc95a1db0e9
+index 00000000000000..94bc444f10eb2b
 --- /dev/null
 +++ b/src/crypto/internal/backend/boring_linux.go
-@@ -0,0 +1,265 @@
+@@ -0,0 +1,267 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -69,12 +69,14 @@ index 00000000000000..e1ebc95a1db0e9
 +	}
 +}
 +
-+func NewMD5() hash.Hash    { panic("cryptobackend: not available") }
-+func NewSHA1() hash.Hash   { return boring.NewSHA1() }
-+func NewSHA224() hash.Hash { return boring.NewSHA224() }
-+func NewSHA256() hash.Hash { return boring.NewSHA256() }
-+func NewSHA384() hash.Hash { return boring.NewSHA384() }
-+func NewSHA512() hash.Hash { return boring.NewSHA512() }
++func NewMD5() hash.Hash        { panic("cryptobackend: not available") }
++func NewSHA1() hash.Hash       { return boring.NewSHA1() }
++func NewSHA224() hash.Hash     { return boring.NewSHA224() }
++func NewSHA256() hash.Hash     { return boring.NewSHA256() }
++func NewSHA384() hash.Hash     { return boring.NewSHA384() }
++func NewSHA512() hash.Hash     { return boring.NewSHA512() }
++func NewSHA512_224() hash.Hash { panic("cryptobackend: not available") }
++func NewSHA512_256() hash.Hash { panic("cryptobackend: not available") }
 +
 +func MD5(p []byte) (sum [16]byte)        { panic("cryptobackend: not available") }
 +func SHA1(p []byte) (sum [20]byte)       { return boring.SHA1(p) }

@@ -7,7 +7,7 @@ Subject: [PATCH] Add CNG crypto backend
  src/crypto/ecdsa/badlinkname.go               |  17 +
  src/crypto/internal/backend/backend_test.go   |   4 +-
  src/crypto/internal/backend/bbig/big_cng.go   |  12 +
- src/crypto/internal/backend/cng_windows.go    | 318 ++++++++++++++++++
+ src/crypto/internal/backend/cng_windows.go    | 320 ++++++++++++++++++
  src/crypto/internal/backend/common.go         |   9 +-
  src/crypto/internal/backend/fips140/cng.go    |  33 ++
  src/crypto/rsa/pss_test.go                    |   2 +-
@@ -18,7 +18,7 @@ Subject: [PATCH] Add CNG crypto backend
  .../goexperiment/exp_cngcrypto_off.go         |   9 +
  src/internal/goexperiment/exp_cngcrypto_on.go |   9 +
  src/internal/goexperiment/flags.go            |   1 +
- 14 files changed, 418 insertions(+), 5 deletions(-)
+ 14 files changed, 420 insertions(+), 5 deletions(-)
  create mode 100644 src/crypto/ecdsa/badlinkname.go
  create mode 100644 src/crypto/internal/backend/bbig/big_cng.go
  create mode 100644 src/crypto/internal/backend/cng_windows.go
@@ -84,10 +84,10 @@ index 00000000000000..92623031fd87d0
 +var Dec = bbig.Dec
 diff --git a/src/crypto/internal/backend/cng_windows.go b/src/crypto/internal/backend/cng_windows.go
 new file mode 100644
-index 00000000000000..2c22deb7f14aaf
+index 00000000000000..495260a08dd029
 --- /dev/null
 +++ b/src/crypto/internal/backend/cng_windows.go
-@@ -0,0 +1,318 @@
+@@ -0,0 +1,320 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -134,12 +134,14 @@ index 00000000000000..2c22deb7f14aaf
 +	return cng.SupportsHash(h)
 +}
 +
-+func NewMD5() hash.Hash    { return cng.NewMD5() }
-+func NewSHA1() hash.Hash   { return cng.NewSHA1() }
-+func NewSHA224() hash.Hash { panic("cngcrypto: not available") }
-+func NewSHA256() hash.Hash { return cng.NewSHA256() }
-+func NewSHA384() hash.Hash { return cng.NewSHA384() }
-+func NewSHA512() hash.Hash { return cng.NewSHA512() }
++func NewMD5() hash.Hash        { return cng.NewMD5() }
++func NewSHA1() hash.Hash       { return cng.NewSHA1() }
++func NewSHA224() hash.Hash     { panic("cngcrypto: not available") }
++func NewSHA256() hash.Hash     { return cng.NewSHA256() }
++func NewSHA384() hash.Hash     { return cng.NewSHA384() }
++func NewSHA512() hash.Hash     { return cng.NewSHA512() }
++func NewSHA512_224() hash.Hash { panic("cngcrypto: not available") }
++func NewSHA512_256() hash.Hash { panic("cngcrypto: not available") }
 +
 +func MD5(p []byte) (sum [16]byte)        { return cng.MD5(p) }
 +func SHA1(p []byte) (sum [20]byte)       { return cng.SHA1(p) }

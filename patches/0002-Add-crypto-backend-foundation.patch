@@ -34,7 +34,7 @@ Subject: [PATCH] Add crypto backend foundation
  .../internal/backend/fips140/isrequirefips.go |   9 +
  .../internal/backend/fips140/norequirefips.go |   9 +
  .../backend/fips140/nosystemcrypto.go         |  11 +
- src/crypto/internal/backend/nobackend.go      | 229 ++++++++++++++++++
+ src/crypto/internal/backend/nobackend.go      | 233 ++++++++++++++++++
  src/crypto/internal/backend/stub.s            |  10 +
  src/crypto/internal/cryptotest/allocations.go |   2 +-
  .../internal/cryptotest/implementations.go    |   2 +-
@@ -68,7 +68,7 @@ Subject: [PATCH] Add crypto backend foundation
  src/crypto/tls/handshake_server.go            |  10 +-
  src/crypto/tls/handshake_server_tls13.go      |  25 +-
  src/crypto/tls/internal/fips140tls/fipstls.go |   3 +-
- src/crypto/tls/prf.go                         |  41 ++++
+ src/crypto/tls/prf.go                         |  41 +++
  src/go/build/deps_test.go                     |   8 +-
  src/hash/boring_test.go                       |   9 +
  src/hash/example_test.go                      |   2 +
@@ -76,7 +76,7 @@ Subject: [PATCH] Add crypto backend foundation
  src/hash/notboring_test.go                    |   9 +
  src/net/smtp/smtp_test.go                     |  72 ++++--
  src/runtime/runtime_boring.go                 |   5 +
- 72 files changed, 1217 insertions(+), 89 deletions(-)
+ 72 files changed, 1221 insertions(+), 89 deletions(-)
  create mode 100644 src/crypto/dsa/boring.go
  create mode 100644 src/crypto/dsa/notboring.go
  create mode 100644 src/crypto/ed25519/boring.go
@@ -1148,10 +1148,10 @@ index 00000000000000..83691d7dd42d51
 +}
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
-index 00000000000000..2ad15a0d1e370e
+index 00000000000000..3ebb6d5e4b4bb5
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,229 @@
+@@ -0,0 +1,233 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -1180,19 +1180,23 @@ index 00000000000000..2ad15a0d1e370e
 +
 +func SupportsHash(h crypto.Hash) bool { panic("cryptobackend: not available") }
 +
-+func NewMD5() hash.Hash    { panic("cryptobackend: not available") }
-+func NewSHA1() hash.Hash   { panic("cryptobackend: not available") }
-+func NewSHA224() hash.Hash { panic("cryptobackend: not available") }
-+func NewSHA256() hash.Hash { panic("cryptobackend: not available") }
-+func NewSHA384() hash.Hash { panic("cryptobackend: not available") }
-+func NewSHA512() hash.Hash { panic("cryptobackend: not available") }
++func NewMD5() hash.Hash        { panic("cryptobackend: not available") }
++func NewSHA1() hash.Hash       { panic("cryptobackend: not available") }
++func NewSHA224() hash.Hash     { panic("cryptobackend: not available") }
++func NewSHA256() hash.Hash     { panic("cryptobackend: not available") }
++func NewSHA384() hash.Hash     { panic("cryptobackend: not available") }
++func NewSHA512() hash.Hash     { panic("cryptobackend: not available") }
++func NewSHA512_224() hash.Hash { panic("cryptobackend: not available") }
++func NewSHA512_256() hash.Hash { panic("cryptobackend: not available") }
 +
-+func MD5(p []byte) (sum [16]byte)    { panic("cryptobackend: not available") }
-+func SHA1(p []byte) (sum [20]byte)   { panic("cryptobackend: not available") }
-+func SHA224(p []byte) (sum [28]byte) { panic("cryptobackend: not available") }
-+func SHA256(p []byte) (sum [32]byte) { panic("cryptobackend: not available") }
-+func SHA384(p []byte) (sum [48]byte) { panic("cryptobackend: not available") }
-+func SHA512(p []byte) (sum [64]byte) { panic("cryptobackend: not available") }
++func MD5(p []byte) (sum [16]byte)        { panic("cryptobackend: not available") }
++func SHA1(p []byte) (sum [20]byte)       { panic("cryptobackend: not available") }
++func SHA224(p []byte) (sum [28]byte)     { panic("cryptobackend: not available") }
++func SHA256(p []byte) (sum [32]byte)     { panic("cryptobackend: not available") }
++func SHA384(p []byte) (sum [48]byte)     { panic("cryptobackend: not available") }
++func SHA512(p []byte) (sum [64]byte)     { panic("cryptobackend: not available") }
++func SHA512_224(p []byte) (sum [28]byte) { panic("cryptobackend: not available") }
++func SHA512_256(p []byte) (sum [32]byte) { panic("cryptobackend: not available") }
 +
 +func NewHMAC(h func() hash.Hash, key []byte) hash.Hash { panic("cryptobackend: not available") }
 +
